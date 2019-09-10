@@ -1,0 +1,18 @@
+name = "SequentialConvexRelaxation"
+uuid = "154aca32-cc25-11e9-1929-3b69ed34445f"
+authors = ["Reinier Doelman"]
+version = "0.1.0"
+
+[deps]
+Convex = "f65535da-76fb-5f13-bab9-19810c17039a"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MathProgBase = "fdba3010-5040-5b88-9595-932c9decdf73"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SCS = "c946c3f1-0d1f-5ce8-9dea-7daa1f7e2d13"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
