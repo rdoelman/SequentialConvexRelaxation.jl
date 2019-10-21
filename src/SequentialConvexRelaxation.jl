@@ -173,16 +173,16 @@ end
 
 """
     Result(iterations::Int,
-        randomizedweights::Symbol,
+        update_weights::Bool,
         objective_values::Vector{AbstractFloat},
         constraint_violations,
         tracked_variables_values)
 
-Records the result of solve!(), including the number of iterations, whether the matrices W1,W2 were randomized, what the objective values were, what the (bilinear) constraint violations were during the optimization, and what the values were of the variables that were tracked during the optimization.
+Records the result of solve!(), including the number of iterations, whether the matrices W1,W2 were update, what the objective values were, what the (bilinear) constraint violations were during the optimization, and what the values were of the variables that were tracked during the optimization.
 """
 mutable struct Result
     iterations::Int
-    randomizedweights::Symbol
+    update_weights::Bool
     objective_values::Vector{AbstractFloat}
     constraint_violations
     tracked_variables_values
@@ -241,30 +241,6 @@ function _setW1W2!(b::BilinearConstraint, W1::Union{Number,AbstractArray},W2::Un
     fix!(b.W2,W2)
 end
 
-# Why would you change W1 and W2 to a random matrix?
-# Because it gives a differently scaled problem, and different (sometimes faster) convergence behaviour
-function _setW1W2!(b::BilinearConstraint; distribution=:Gaussian)
-    # this function sets the weights randomly
-    n = size(b.W1,1)
-    m = size(b.W2,1)
-
-    if distribution==:none
-        return
-    elseif distribution==:Gaussian
-        F = randn(n,n)
-        fix!(b.W1,F/svdvals(F)[1])
-        G = randn(m,m)
-        fix!(b.W2,G/svdvals(G)[1])
-    elseif distribution==:Uniform
-        F = rand(n,n) .- 0.5
-        fix!(b.W1,F/svdvals(F)[1])
-        G = rand(m,m) .- 0.5
-        fix!(b.W2,G/svdvals(G)[1])
-    else
-        error("Unknown distribution")
-    end
-end
-
 function _regularizationMatrix(b::BilinearConstraint)
     return [ b.W1*(b.C + b.X*b.P*b.Y + b.A*b.P*b.Y + b.X*b.P*b.B)*b.W2  b.W1*(b.A+b.X)*b.P; b.P*(b.B+b.Y)*b.W2 b.P]
 end
@@ -274,7 +250,7 @@ end
         solver::MathProgBase.AbstractMathProgSolver;
         iterations::Int=1,
         trackvariables::Tuple{Vararg{AbstractExpr}}=tuple(),
-        randomizedweights::Symbol=:none)
+        update_weights::Bool=false)
 
 Attempt to solve the bilinear problem (first argument) using the convex optimization solver.
 Note that solver must be able to handle semidefinite programming (SDP) problems.
@@ -300,14 +276,18 @@ julia> solve!(bp,SCSSolver(),iterations=3)
 For this specific example, A^2 = 1, one can show the solve!() method always (globally) converges to the correct solution given enough iterations.
 The number of required iterations for this specific example to converge scales logarithmically with A0.
 
-The option randomizedweights ∈ {:none, :Gaussian, :Uniform} is an *unproven heuristic* that *sometimes* improves the convergence speed for matrix-valued constraints.
-Think of it as a reweighted regularization ||W1(C-APB)W2||, where W1 and W2 are weighting matrices drawn randomly form Gaussian N(0,I), or Uniform U[-1/2,1/2] distributions, with their largest singular value σ1 = 1.
+The option update_weights ∈ {true, false} is a heuristic reweighting method that can improves the convergence speed for matrix-valued constraints.
+Think of it as a reweighted regularization ||W1(C-APB)W2||, where W1 and W2 are weighting matrices computed as:
+E := C-APB, W1 = inv(E*E' + γ*I), W2 = inv(E'*E + γ*I), γ = weight_update_tuning_param > 0.
 """
 function solve!(bilinearproblem::BilinearProblem,
     solver::MathProgBase.AbstractMathProgSolver;
     iterations::Int=1,        # SCR iterations
     trackvariables::Tuple{Vararg{AbstractExpr}}=tuple(),
-    randomizedweights::Symbol=:none)
+    update_weights::Bool=false,
+    weight_update_tuning_param::AbstractFloat=0.1)
+
+    @assert weight_update_tuning_param > 0
 
     bp = bilinearproblem
     regularization = sum([nuclearnorm(b.λ*_regularizationMatrix(b)) - b.λ*sum(svdvals(b.P)) for b in bp.bilinearconstraints])
@@ -325,6 +305,22 @@ function solve!(bilinearproblem::BilinearProblem,
     end
 
     for i in 1:iterations
+
+        for b in bp.bilinearconstraints
+
+            if update_weights
+                A = -evaluate(b.X)
+                B = -evaluate(b.Y)
+                C = evaluate(b.C)
+
+                # constraint violations
+                E = C.- A*b.P*B
+                F = inv(E*E' + weight_update_tuning_param * Matrix{Float64}(I,size(C,1),size(C,1)))
+                G = inv(E'*E + weight_update_tuning_param * Matrix{Float64}(I,size(C,2),size(C,2)))
+
+                _setW1W2!(b,F,G)
+            end
+        end
 
         Convex.solve!(bp.convexproblem, solver)
 
@@ -350,9 +346,6 @@ function solve!(bilinearproblem::BilinearProblem,
             push!(tracked_variables_values,im)
         end
 
-        for b in bp.bilinearconstraints
-            _setW1W2!(b,distribution=randomizedweights)
-        end
 
     end
 
@@ -372,7 +365,7 @@ function solve!(bilinearproblem::BilinearProblem,
     end
 
     bilinearproblem.result = Result(iterations,
-        randomizedweights,
+        update_weights,
         objective_values,
         constraint_violations,
         tracked_variables_values)

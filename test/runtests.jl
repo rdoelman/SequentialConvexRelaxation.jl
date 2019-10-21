@@ -56,7 +56,7 @@ Random.seed!(123)
             bp = BilinearProblem(problem,bc1)
             SequentialConvexRelaxation.solve!(bp,SCSSolver(verbose=0),iterations=3)
             @test bp.result.iterations == 3
-            @test bp.result.randomizedweights == :none
+            @test bp.result.update_weights == false
             @test bp.result.constraint_violations[1][1] <= 1E-5
             @test isempty(bp.result.tracked_variables_values)
             @test ≈(evaluate(A)*evaluate(B),1.,rtol=1E-5)
@@ -68,7 +68,7 @@ Random.seed!(123)
             bp = BilinearProblem(problem,bc2)
             SequentialConvexRelaxation.solve!(bp,SCSSolver(verbose=0),iterations=5)
             @test bp.result.iterations == 5
-            @test bp.result.randomizedweights == :none
+            @test bp.result.update_weights == false
             @test bp.result.constraint_violations[end][1] <= 1E-3
             @test isempty(bp.result.tracked_variables_values)
             @test ≈(evaluate(A)*evaluate(B),1.,rtol=1E-4)
@@ -105,6 +105,39 @@ Random.seed!(123)
             @test norm(evaluate(A)*evaluate(B) - D) <= 1E-4
         end
 
+        # @testset "Convergence speed using reweighting" begin
+            # # SCS cannot handle the numerical issues
+            # using Mosek
+            #
+            # Random.seed!(1)
+            # N = 3
+            # n,m = 8,8
+            # p,q = 2,3
+            # At = randn(n,p)
+            # P = randn(p,q)
+            # Bt = randn(q,m)
+            # C = At*P*Bt
+            # A = Variable(n,p)
+            # B = Variable(q,m)
+            # X0,Y0 = 5*randn(n,p),5*randn(q,m)
+            # problem = minimize(0.)
+            # bc = BilinearConstraint(A,P,B,C,X=X0,Y=Y0)
+            # bp = BilinearProblem(problem,bc)
+            #
+            # # Try to solve the problem without updated weights
+            # rf = solve!(bp,MosekSolver(MSK_IPAR_LOG=0),iterations=N, update_weights=false)
+            # # rf = solve!(bp,SCSSolver(verbose=0),iterations=N, update_weights=false)
+            #
+            # bc = BilinearConstraint(A,P,B,C,X=X0,Y=Y0)
+            # bp = BilinearProblem(problem,bc)
+            #
+            # # Try to solve the problem with updated weights
+            # rt = solve!(bp,MosekSolver(MSK_IPAR_LOG=0),iterations=N, update_weights=true, weight_update_tuning_param=5E-1)
+            # # rt = solve!(bp,SCSSolver(verbose=0),iterations=N, update_weights=true, weight_update_tuning_param=10E-1)
+            #
+            # @test rf.constraint_violations[2][1] > 1E-6
+            # @test rt.constraint_violations[2][1] < 1E-6
+        # end
     end
 
 end
