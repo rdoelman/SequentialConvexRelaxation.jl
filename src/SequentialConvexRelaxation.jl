@@ -250,7 +250,8 @@ end
         solver::MathProgBase.AbstractMathProgSolver;
         iterations::Int=1,
         trackvariables::Tuple{Vararg{AbstractExpr}}=tuple(),
-        update_weights::Bool=false)
+        update_weights::Bool=false,
+        weight_update_tuning_param)
 
 Attempt to solve the bilinear problem (first argument) using the convex optimization solver.
 Note that solver must be able to handle semidefinite programming (SDP) problems.
