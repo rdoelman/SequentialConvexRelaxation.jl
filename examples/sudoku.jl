@@ -1,11 +1,11 @@
 using Convex
 using SequentialConvexRelaxation
 using LinearAlgebra
+using SCS
+solver = SCSSolver(verbose=1, max_iters=40000)
 using Random
-# using SCS # SCS tends to be too inaccurate for this problem
-using Mosek # Mosek's doing fine in my experience, version 0.9.11
-
 Random.seed!(1)
+
 
 # https://www.websudoku.com/?level=3&set_id=4720027535
 # 0 indicates unknown value
@@ -32,10 +32,11 @@ x
 constraint = Constraint[]
 
 # x is larger than 0, smaller than 1
-for k in 1:9
-  push!(constraint, x[k] <= 1)
-  push!(constraint, x[k] >= 0)
-end
+# These constraints are automaticall added when using BinaryConstraint()
+# for k in 1:9
+#   push!(constraint, x[k] <= 1)
+#   push!(constraint, x[k] >= 0)
+# end
 
 # each number k appears once in column j
 for j = 1:9, k = 1:9
@@ -68,19 +69,19 @@ for i in 1:9, j in 1:9, k in 1:9
   end
 end
 
-bc = BilinearConstraint[]
+bc = BConstraint[]
 for i in 1:9, j in 1:9, k = 1:9
   push!(bc,BinaryConstraint(x[k][i,j],X=-1*rand()))
 end
 
 p = minimize(0.,constraint)
 bp = BilinearProblem(p,bc)
-# solve!(bp, SCSSolver(verbose=1), iterations=3)
-solve!(bp, MosekSolver(), iterations=3)
+solve!(bp, solver, iterations=2)
 
 X = [evaluate(x[k]) for k in 1:9]
 X = [k*round.(Int,X[k]) for k in 1:9]
 X = reduce(+,X)
+display(X)
 
 # solution = X = [
 #   7  1  9  3  4  8  2  5  6
@@ -93,3 +94,4 @@ X = reduce(+,X)
 #   6  5  2  1  7  4  8  3  9
 #   9  7  8  6  2  3  5  1  4
 # ]
+# X - solution

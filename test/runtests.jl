@@ -34,7 +34,7 @@ Random.seed!(123)
         @test_throws DimensionMismatch BilinearConstraint(Variable(2,1),[P],B,Variable(2,1),W1=ones(2,1))
         @test_throws AssertionError BilinearConstraint(Variable(2,1),[P],B,Variable(2,1),W1=[2. 1.; 2. 1.])
         @test BilinearConstraint(ComplexVariable(2,1),P,B,ComplexVariable(2,1)) isa BilinearConstraint
-        @test BinaryConstraint(A,X=X) isa BilinearConstraint
+        @test BinaryConstraint(A,X=X) isa BinaryConstraint
     end
 
     bc1 = BilinearConstraint(A,P,B,D,X=X,Y=Y)
@@ -104,40 +104,6 @@ Random.seed!(123)
             @test !isempty(bp.result.tracked_variables_values)
             @test norm(evaluate(A)*evaluate(B) - D) <= 1E-4
         end
-
-        # @testset "Convergence speed using reweighting" begin
-            # # SCS cannot handle the numerical issues
-            # using Mosek
-            #
-            # Random.seed!(1)
-            # N = 3
-            # n,m = 8,8
-            # p,q = 2,3
-            # At = randn(n,p)
-            # P = randn(p,q)
-            # Bt = randn(q,m)
-            # C = At*P*Bt
-            # A = Variable(n,p)
-            # B = Variable(q,m)
-            # X0,Y0 = 5*randn(n,p),5*randn(q,m)
-            # problem = minimize(0.)
-            # bc = BilinearConstraint(A,P,B,C,X=X0,Y=Y0)
-            # bp = BilinearProblem(problem,bc)
-            #
-            # # Try to solve the problem without updated weights
-            # rf = solve!(bp,MosekSolver(MSK_IPAR_LOG=0),iterations=N, update_weights=false)
-            # # rf = solve!(bp,SCSSolver(verbose=0),iterations=N, update_weights=false)
-            #
-            # bc = BilinearConstraint(A,P,B,C,X=X0,Y=Y0)
-            # bp = BilinearProblem(problem,bc)
-            #
-            # # Try to solve the problem with updated weights
-            # rt = solve!(bp,MosekSolver(MSK_IPAR_LOG=0),iterations=N, update_weights=true, weight_update_tuning_param=5E-1)
-            # # rt = solve!(bp,SCSSolver(verbose=0),iterations=N, update_weights=true, weight_update_tuning_param=10E-1)
-            #
-            # @test rf.constraint_violations[2][1] > 1E-6
-            # @test rt.constraint_violations[2][1] < 1E-6
-        # end
     end
 
 end

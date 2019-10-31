@@ -7,7 +7,9 @@ import Convex.solve!
 using LinearAlgebra
 import MathProgBase
 
-export solve!, BilinearProblem, BilinearConstraint, BinaryConstraint
+export solve!, BConstraint, BilinearProblem, BilinearConstraint, BinaryConstraint
+
+abstract type BConstraint end
 
 const InputType = Union{AbstractVecOrMat{T},T,Complex{T}} where T <: Union{AbstractFloat,Integer}
 
@@ -53,7 +55,7 @@ julia> B = Variable()
 julia> BilinearConstraint(A,1.,B,1.) # A*1.*B=1.
 ```
 """
-mutable struct BilinearConstraint
+mutable struct BilinearConstraint <: BConstraint
     # Matrices and Convex.jl expressions that characterize the problem APB=C
     A::AbstractExpr
     P::InputType
@@ -163,12 +165,33 @@ julia> A = Variable()
 julia> BinaryConstraint(A)
 ```
 """
-function BinaryConstraint(A::AbstractExpr;
-            X::Union{InputType,Nothing}=nothing,
-            W1::Union{InputType,Nothing}=nothing,
-            λ::Float64 = 1.)
+mutable struct BinaryConstraint <: BConstraint
 
-    return BilinearConstraint(2.0*A-1.,1.,2.0*A-1.,1.0,X=2.0*X-1.,Y=2.0*X-1.,W1=W1,W2=W1,λ=λ)
+    # Matrices and Convex.jl expressions that characterize the problem APB=C
+    A::AbstractExpr
+    P::InputType
+    B::AbstractExpr
+    C::AbstractExpr
+
+    # These are the `bias' matrices in SCR
+    X::AbstractExpr
+    Y::AbstractExpr
+
+    # Weighting matrices in SCR
+    W1::AbstractExpr
+    W2::AbstractExpr
+
+    # Regularization parameter
+    λ::AbstractFloat
+
+    function BinaryConstraint(A::AbstractExpr;
+                X::Union{InputType,Nothing}=nothing,
+                W1::Union{InputType,Nothing}=nothing,
+                λ::Float64 = 1.)
+        X = X isa Nothing ? rand() : X
+        b =  BilinearConstraint(2.0*A-1.,1.,2.0*A-1.,1.0,X=2.0*X-1.,Y=2.0*X-1.,W1=W1,W2=W1,λ=λ)
+        new(b.A,b.P,b.B,b.C,b.X,b.Y,b.W1,b.W2,b.λ)
+    end
 end
 
 """
@@ -210,11 +233,11 @@ julia> BilinearProblem(minimize(0.),A) # find A, s.t. A^2=1
 """
 mutable struct BilinearProblem
     convexproblem::Convex.Problem
-    bilinearconstraints::Vector{BilinearConstraint}
+    bilinearconstraints::Vector{T} where T <: BConstraint
     result::Result
 
     function BilinearProblem(convexproblem::Convex.Problem,
-        bilinearconstraints::Vector{BilinearConstraint}=BilinearConstraint[])
+        bilinearconstraints::Vector{T} where T <: BConstraint=BConstraint[])
 
         isempty(bilinearconstraints) && error("No bilinear constraints supplied")
 
@@ -222,10 +245,10 @@ mutable struct BilinearProblem
     end
 end
 
-BilinearProblem(convexproblem::Convex.Problem,bilinearconstraints::BilinearConstraint...) =
+BilinearProblem(convexproblem::Convex.Problem,bilinearconstraints::BConstraint...) =
     BilinearProblem(convexproblem,[bilinearconstraints...])
 
-function _setXY!(b::BilinearConstraint,Xn::Union{Number,AbstractArray},Yn::Union{Number,AbstractArray}; isestimate=true)
+function _setXY!(b::BConstraint,Xn::Union{Number,AbstractArray},Yn::Union{Number,AbstractArray}; isestimate=true)
 
     Xn = Xn isa Number ? Xn = fill(Xn, (1, 1)) : Xn
     Xn = Xn isa AbstractVector ? Xn = reshape(Xn,length(Xn),1) : Xn
@@ -236,13 +259,21 @@ function _setXY!(b::BilinearConstraint,Xn::Union{Number,AbstractArray},Yn::Union
     isestimate ? fix!(b.Y,reshape(-Yn,size(b.Y))) : fix!(b.Y,reshape(Yn,size(b.Y)))
 end
 
-function _setW1W2!(b::BilinearConstraint, W1::Union{Number,AbstractArray},W2::Union{Number,AbstractArray})
+function _setW1W2!(b::BConstraint, W1::Union{Number,AbstractArray},W2::Union{Number,AbstractArray})
     fix!(b.W1,W1)
     fix!(b.W2,W2)
 end
 
-function _regularizationMatrix(b::BilinearConstraint)
+function _regularizationMatrix(b::BConstraint)
     return [ b.W1*(b.C + b.X*b.P*b.Y + b.A*b.P*b.Y + b.X*b.P*b.B)*b.W2  b.W1*(b.A+b.X)*b.P; b.P*(b.B+b.Y)*b.W2 b.P]
+end
+
+function _regularizationterm(b::BConstraint)
+    nuclearnorm(b.λ*_regularizationMatrix(b)) - b.λ*sum(svdvals(b.P))
+end
+
+function _regularizationterm(b::BinaryConstraint)
+    b.λ * abs(_regularizationMatrix(b)[1,1])
 end
 
 """
@@ -291,11 +322,23 @@ function solve!(bilinearproblem::BilinearProblem,
     @assert weight_update_tuning_param > 0
 
     bp = bilinearproblem
-    regularization = sum([nuclearnorm(b.λ*_regularizationMatrix(b)) - b.λ*sum(svdvals(b.P)) for b in bp.bilinearconstraints])
+    # regularization = sum([nuclearnorm(b.λ*_regularizationMatrix(b)) - b.λ*sum(svdvals(b.P)) for b in bp.bilinearconstraints])
+    regularization = sum([_regularizationterm(b) for b in bp.bilinearconstraints])
 
     p = bp.convexproblem
     obj = p.objective
     p.objective = p.head == :minimize ? obj+regularization : obj-regularization
+
+    # the following guarantees that for binary constraints we can make a simplification from SDP to LP terms
+    constraints = p.constraints
+    newconstraints = copy(constraints)
+    for b in bp.bilinearconstraints
+        if b isa BinaryConstraint
+            newconstraints += [b.A < 1.0]
+            newconstraints += [b.A > -1.0]
+        end
+    end
+    p.constraints = newconstraints
 
     constraint_violations = Vector{AbstractFloat}[]
     objective_values = AbstractFloat[]
@@ -309,7 +352,7 @@ function solve!(bilinearproblem::BilinearProblem,
 
         for b in bp.bilinearconstraints
 
-            if update_weights
+            if update_weights && i > 2
                 A = -evaluate(b.X)
                 B = -evaluate(b.Y)
                 C = evaluate(b.C)
@@ -351,6 +394,7 @@ function solve!(bilinearproblem::BilinearProblem,
     end
 
     p.objective = obj # reset the original objective function
+    p.constraints = constraints
 
     # issue a warning for constraints that have not been satisfied
     for (i,b) in enumerate(bp.bilinearconstraints)
