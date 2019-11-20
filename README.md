@@ -10,13 +10,13 @@ An introduction to the package can also be found [here](https://rdoelman.bitbuck
 ## What does this package do?
 This package gives a convenient approach to attempt to solve nonconvex optimization problems that can be expressed as convex problems with additional bilinear equality constraints.
 
-Bilinear equality constraints are constraints of the form A * P * B=C, where A and B are (matrix valued) decision variables, P is a constant matrix and C is either a decision variable or a constant matrix.
+Bilinear equality constraints are constraints of the form A(x) * P * B(x) = C(x), where A(x) and B(x) are (matrix valued) decision variables, P is a constant matrix and C(x) is either a decision variable or a constant matrix.
 The additional bilinear equality constraints make the overall optimization problem (in general) non-convex and non-linear.
 This package uses a convex **heuristic** approach to find good and feasible solutions.
 
 The advantages:
 - The ease of use of Convex.jl to model your optimization problem.
-- Only an SDP solver needed.
+- Only an SDP solver needed (LP solver only in some cases).
 - No initial feasible guess is necessary for the solver to start.
 - Only 1 regularization parameter to tune (if necessary) for every bilinear equality constraint.
 
@@ -78,9 +78,9 @@ For more examples, check the files in the 'examples' folder. It contains an inte
 
 The package exposes 4 functions: ``BilinearConstraint``, ``BinaryConstraint``,``BilinearProblem`` and ``solve!``.
 
-A ``BilinearConstraint(A,P,B,C)`` is a constraint of the form A * P * B = C, where A is a variable, P is a constant (scalar or matrix), B is a variable, C is variable or a constant (scalar or matrix).
+A ``BilinearConstraint(A,P,B,C)`` is a constraint of the form A(x) * P * B(x) = C(x), where A(x) is a variable (constructed using Convex.jl), P is a constant (scalar or matrix), B(x) is a variable, C(x) is variable or a constant (scalar or matrix).
 
-A ``BinaryConstraint(A)`` is a constraint of the form  A ∈ {0,1}, which is converted into a BilinearConstraint.
+A ``BinaryConstraint(A)`` is a constraint of the form  A ∈ {0,1}.
 
 A ``BilinearProblem(p,bc)`` consists of two elements: a convex problem ``p`` (as in ``p = Convex.minimize(x)``), and (a vector of) additional bilinear equality constraints ``bc`` (making the complete problem non-convex in general).
 
