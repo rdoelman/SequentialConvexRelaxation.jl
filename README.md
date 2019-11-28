@@ -10,7 +10,7 @@ An introduction to the package can also be found [here](https://rdoelman.bitbuck
 ## What does this package do?
 This package gives a convenient approach to attempt to solve nonconvex optimization problems that can be expressed as convex problems with additional bilinear equality constraints.
 
-Bilinear equality constraints are constraints of the form A(x) * P * B(x) = C(x), where A(x) and B(x) are (matrix valued) decision variables, P is a constant matrix and C(x) is either a decision variable or a constant matrix.
+Bilinear equality constraints are constraints of the form A(x) * P * B(x) == C(x), where A(x) and B(x) are (matrix valued) decision variables (any `AbstractExpr` in the Convex.jl modelling framework), P is a constant matrix and C(x) is either a decision variable or a constant matrix (again, any `AbstractExpr`).
 The additional bilinear equality constraints make the overall optimization problem (in general) non-convex and non-linear.
 This package uses a convex **heuristic** approach to find good and feasible solutions.
 
