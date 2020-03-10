@@ -5,8 +5,11 @@ using LinearAlgebra
 using SCS
 using Random
 Random.seed!(123)
-
 solver() = SCS.Optimizer(verbose=0)
+
+# To test with Mosek
+# using MosekTools
+# solver() = Mosek.Optimizer(QUIET=true)
 
 @testset "SequentialConvexRelaxation.jl" begin
     A = Variable()
