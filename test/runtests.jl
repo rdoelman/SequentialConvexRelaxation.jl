@@ -6,6 +6,8 @@ using SCS
 using Random
 Random.seed!(123)
 
+solver() = SCS.Optimizer(verbose=0)
+
 @testset "SequentialConvexRelaxation.jl" begin
     A = Variable()
     B = Variable()
@@ -54,7 +56,7 @@ Random.seed!(123)
             bc1 = BilinearConstraint(A,P,B,D,X=X,Y=Y)
             problem = minimize(0.)
             bp = BilinearProblem(problem,bc1)
-            SequentialConvexRelaxation.solve!(bp,SCSSolver(verbose=0),iterations=3)
+            SequentialConvexRelaxation.solve!(bp,solver,iterations=3)
             @test bp.result.iterations == 3
             @test bp.result.update_weights == false
             @test bp.result.constraint_violations[1][1] <= 1E-5
@@ -66,7 +68,7 @@ Random.seed!(123)
             problem = minimize(0.)
             bc2 = BilinearConstraint(A,P,B,D,X=60*X,Y=60*X)
             bp = BilinearProblem(problem,bc2)
-            SequentialConvexRelaxation.solve!(bp,SCSSolver(verbose=0),iterations=5)
+            SequentialConvexRelaxation.solve!(bp,solver,iterations=5)
             @test bp.result.iterations == 5
             @test bp.result.update_weights == false
             @test bp.result.constraint_violations[end][1] <= 1E-3
@@ -78,7 +80,7 @@ Random.seed!(123)
             problem = minimize(0.)
             bc2 = BilinearConstraint(A,P,B,D,X=20*X,Y=20*X)
             bp = BilinearProblem(problem,bc2)
-            r = SequentialConvexRelaxation.solve!(bp,SCSSolver(verbose=0),trackvariables=(A, B),iterations=4)
+            r = SequentialConvexRelaxation.solve!(bp,solver,trackvariables=(A, B),iterations=4)
             @test !isempty(bp.result.tracked_variables_values)
         end
 
@@ -88,7 +90,7 @@ Random.seed!(123)
             B = ComplexVariable()
             bc2 = BilinearConstraint(A,P,B,D,X=0.1+0.1im,Y=0.3-0.2im)
             bp = BilinearProblem(problem,bc2)
-            r = SequentialConvexRelaxation.solve!(bp,SCSSolver(verbose=0),trackvariables=(A, B),iterations=7)
+            r = SequentialConvexRelaxation.solve!(bp,solver,trackvariables=(A, B),iterations=7)
             @test !isempty(bp.result.tracked_variables_values)
             @test norm(evaluate(A)*evaluate(B) - 1.) <= 1E-3
         end
@@ -100,7 +102,7 @@ Random.seed!(123)
             D = rand(2)*rand(2)'
             bc2 = BilinearConstraint(A,1.,B,D)
             bp = BilinearProblem(problem,bc2)
-            r = SequentialConvexRelaxation.solve!(bp,SCSSolver(verbose=0),trackvariables=(A, B),iterations=3)
+            r = SequentialConvexRelaxation.solve!(bp,solver,trackvariables=(A, B),iterations=3)
             @test !isempty(bp.result.tracked_variables_values)
             @test norm(evaluate(A)*evaluate(B) - D) <= 1E-4
         end

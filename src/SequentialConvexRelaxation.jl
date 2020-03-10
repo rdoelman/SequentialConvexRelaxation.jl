@@ -3,6 +3,7 @@ module SequentialConvexRelaxation
 # Reinier Doelman, 2/9/2019
 
 using Convex
+using Convex: AbstractExpr
 import Convex.solve!
 using LinearAlgebra
 
