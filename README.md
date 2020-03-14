@@ -67,11 +67,17 @@ bc = BilinearConstraint(x,1.,x,y-z,X=-x0,Y=-x0,λ=λ)
 bp = BilinearProblem(p,bc)
 
 # Call the solve!() function on the bilinear problem
-r = solve!(bp,SCSSolver(verbose=0),iterations=2)
+r = solve!(bp,() -> SCS.Optimizer(verbose=0),iterations=2)
 
 # Use Convex.jl to inspect the result. It turns out to be the global minimizer
 xopt = evaluate(x)
 yopt = evaluate(y)
+```
+
+To solve the problem with `Mosek` instead, replace the `solve!` call above with
+```julia
+using MosekTools
+r = solve!(bp,() -> Mosek.Optimizer(QUIET=true),iterations=2)
 ```
 
 For more examples, check the files in the 'examples' folder. It contains an interactive demo of exactly what the method does, an interactive demo with the Rosenbrock function and a demo on solving a sudoku puzzle.
@@ -129,6 +135,6 @@ The software:
 # Compatibility issues
 Currently Convex.jl and many solvers are in a process to switch to different optimization interface packages, which might break this package's functionality.
 Currently the tested versions are:
-- Convex.jl v0.12.4
-- Mosek.jl v0.9.11
-- SCS.jl v0.6.0
+- Convex.jl v0.13.1
+- MosekTools.jl v0.9.3
+- SCS.jl v0.6.6

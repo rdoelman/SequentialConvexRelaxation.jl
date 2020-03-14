@@ -3,9 +3,9 @@ module SequentialConvexRelaxation
 # Reinier Doelman, 2/9/2019
 
 using Convex
+using Convex: AbstractExpr
 import Convex.solve!
 using LinearAlgebra
-import MathProgBase
 
 export solve!, BConstraint, BilinearProblem, BilinearConstraint, BinaryConstraint
 
@@ -278,7 +278,7 @@ end
 
 """
     solve!(bilinearproblem::BilinearProblem,
-        solver::MathProgBase.AbstractMathProgSolver;
+        solver;
         iterations::Int=1,
         trackvariables::Tuple{Vararg{AbstractExpr}}=tuple(),
         update_weights::Bool=false,
@@ -313,7 +313,7 @@ Think of it as a reweighted regularization ||W1(C-APB)W2||, where W1 and W2 are 
 E := C-APB, W1 = inv(E*E' + γ*I), W2 = inv(E'*E + γ*I), γ = weight_update_tuning_param > 0.
 """
 function solve!(bilinearproblem::BilinearProblem,
-    solver::MathProgBase.AbstractMathProgSolver;
+    solver;
     iterations::Int=1,        # SCR iterations
     trackvariables::Tuple{Vararg{AbstractExpr}}=tuple(),
     update_weights::Bool=false,
